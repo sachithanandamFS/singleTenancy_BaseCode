@@ -18,7 +18,7 @@ import { BaseHandler } from "../shared/BaseHandler.js";
 import { generateToken, blacklistToken } from "../../../utils/jwt.utils.js";
 import { verifyWithProvider } from "../../../utils/auth.service.js";
 import bcrypt from "bcrypt";
-import { hashRoundsPass, LOGIN_MAX_ATTEMPTS, IP_LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_WINDOW_SECONDS } from "../../../constants/constants.js";
+import { hashRoundsPass, LOGIN_MAX_ATTEMPTS, IP_LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_WINDOW_SECONDS, DUMMY_PASSWORD_HASH } from "../../../constants/constants.js";
 import { incrementSecurityCounter, isSecurityThresholdExceeded, resetSecurityCounter } from "../../../utils/securityAudit.js";
 
 /**
@@ -197,6 +197,11 @@ class EmployeeHandlers extends BaseHandler {
    */
   public loginEmployee = this.wrapHandler(
     async (req: Request, res: Response) => {
+      // Disable local login when an external auth provider is active
+      if (process.env.use_auth0 === "TRUE" || process.env.use_sso === "TRUE") {
+        throw new AppError("auth_provider_external", errorCodes.resBadResponse);
+      }
+
       // Sanitize input
       const sanitized = InputSanitizer.sanitize<EmployeeLoginRequestDTO>(req.body, {
         email: "string",
@@ -225,6 +230,8 @@ class EmployeeHandlers extends BaseHandler {
       // Find employee by email
       const employee = await this.repository.findByEmail(email);
       if (!employee) {
+        // Dummy compare to equalize response time with the wrong-password path (timing attack prevention)
+        await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
         await incrementBoth();
         throw new AppError("invalid_credentials", errorCodes.resUnauth);
       }
@@ -363,6 +370,24 @@ class EmployeeHandlers extends BaseHandler {
       employeeId: req.params?.id,
       roleCount: Array.isArray(req.body?.r_role_ids) ? req.body?.r_role_ids.length : 0,
     })
+  );
+
+  /**
+   * Logout — blacklist the current JWT so it cannot be reused
+   * Only applies to local JWT; Auth0/SSO revocation is handled by the provider
+   */
+  public logout = this.wrapHandler(
+    async (req: Request, res: Response) => {
+      if (process.env.use_auth0 !== "TRUE" && process.env.use_sso !== "TRUE") {
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith("Bearer ")) {
+          await blacklistToken(authHeader.split(" ")[1]);
+        }
+      }
+      handleSuccess(res, "logout_success", null, errorCodes.resOk, req.lang);
+    },
+    "Error during logout",
+    (req) => ({ employeeId: req.user?.id })
   );
 
   /**

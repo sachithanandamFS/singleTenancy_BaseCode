@@ -37,6 +37,12 @@ router.post(
 
 router.use(authenticate);
 
+router.post(
+  "/v1/logout",
+  idempotencyMiddleware,
+  employeeHandlers.logout
+);
+
 // all the below request must follow roles and responsibility authorization
 
 // Since Super admin is created already, create employee request must be authorised and role checked before allowing to create a new user
