@@ -415,8 +415,8 @@ class EmployeeHandlers extends BaseHandler {
       await this.repository.updatePassword(employeeId, newPasswordHash);
 
       // Invalidate the current token so it cannot be reused after a password change.
-      // Only applies to local JWT — Auth0 manages token revocation on its own side.
-      if (process.env.use_auth0 !== "TRUE") {
+      // Only applies to local JWT — Auth0 and SSO providers manage token revocation on their own side.
+      if (process.env.use_auth0 !== "TRUE" && process.env.use_sso !== "TRUE") {
         const authHeader = req.headers.authorization;
         if (authHeader?.startsWith("Bearer ")) {
           await blacklistToken(authHeader.split(" ")[1]);
