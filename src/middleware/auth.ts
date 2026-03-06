@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from "express"
 import { logger } from "../utils/logger.js"
 import { AppError } from "../utils/appError.js"
 import { errorCodes } from "../constants/constants.js";
-import { verifyToken, JwtUserPayload } from "../utils/jwt.utils.js";
+import { JwtUserPayload } from "../utils/jwt.utils.js";
+import { verifyWithProvider } from "../utils/auth.service.js";
 
 export const authenticate = async (
   req: Request,
@@ -18,7 +19,7 @@ export const authenticate = async (
     }
 
     const token = authHeader.split(" ")[1]
-    const decoded = await verifyToken(token) as JwtUserPayload;
+    const decoded = await verifyWithProvider(token) as JwtUserPayload;
 
     req.user = decoded;
     next();

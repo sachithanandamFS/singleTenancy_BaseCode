@@ -15,7 +15,8 @@ import { handleSuccess } from "../../../middleware/errorHandler.middleware.js";
 import { InputSanitizer } from "../shared/InputSanitizer.js";
 import { AppError } from "../../../utils/appError.js";
 import { BaseHandler } from "../shared/BaseHandler.js";
-import { generateToken, verifyToken, blacklistToken } from "../../../utils/jwt.utils.js";
+import { generateToken, blacklistToken } from "../../../utils/jwt.utils.js";
+import { verifyWithProvider } from "../../../utils/auth.service.js";
 import bcrypt from "bcrypt";
 import { hashRoundsPass, LOGIN_MAX_ATTEMPTS, IP_LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_WINDOW_SECONDS } from "../../../constants/constants.js";
 import { incrementSecurityCounter, isSecurityThresholdExceeded, resetSecurityCounter } from "../../../utils/securityAudit.js";
@@ -291,7 +292,7 @@ class EmployeeHandlers extends BaseHandler {
       const { token } = sanitized;
 
       try {
-        const decoded = await verifyToken(token);
+        const decoded = await verifyWithProvider(token);
         const tokenData = {
           email: decoded.email,
           name: decoded.name,
@@ -413,10 +414,13 @@ class EmployeeHandlers extends BaseHandler {
       // Update password in repository
       await this.repository.updatePassword(employeeId, newPasswordHash);
 
-      // Invalidate the current token so it cannot be reused after a password change
-      const authHeader = req.headers.authorization;
-      if (authHeader?.startsWith("Bearer ")) {
-        await blacklistToken(authHeader.split(" ")[1]);
+      // Invalidate the current token so it cannot be reused after a password change.
+      // Only applies to local JWT — Auth0 manages token revocation on its own side.
+      if (process.env.use_auth0 !== "TRUE") {
+        const authHeader = req.headers.authorization;
+        if (authHeader?.startsWith("Bearer ")) {
+          await blacklistToken(authHeader.split(" ")[1]);
+        }
       }
 
       handleSuccess(res, "password_changed", null, errorCodes.resOk, req.lang);
