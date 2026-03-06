@@ -1,0 +1,13 @@
+{
+  "responsibilities": [
+    { "id": 1, "label": "Create" },
+    { "id": 2, "label": "Edit" },
+    { "id": 3, "label": "Preview" },
+    { "id": 4, "label": "List" },
+    { "id": 5, "label": "Change Status"  }
+  ],
+  "defaultResponsibilityIds": [1, 2, 3, 4, 5],
+  "modules": [
+    { "id": 1, "label": "Manage Company Details" }
+  ]
+}

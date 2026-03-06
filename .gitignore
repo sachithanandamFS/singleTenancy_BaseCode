@@ -1,0 +1,8 @@
+node_modules/
+dist/
+logs/
+.env
+.DS_Store
+dist.zip
+GENERIC_IMPLEMENTATION_ENHANCED.md
+.github/copilot-instructions.md
