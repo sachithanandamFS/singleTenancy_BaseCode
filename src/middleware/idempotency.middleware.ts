@@ -39,7 +39,9 @@ export const idempotencyMiddleware = async (
 ): Promise<void> => {
   try {
     let check_add_sec = process.env.check_add_sec;
-    if(check_add_sec == 'TRUE'){
+    if(check_add_sec == 'FALSE'){
+        return next();
+    } else {
         const headerValue = req.headers[IDEMPOTENCY_HEADER] as string | undefined;
         if (!headerValue) {
         return next(
@@ -127,8 +129,6 @@ export const idempotencyMiddleware = async (
         });
         return originalSend(body);
         }) as Response["send"];
-        return next();
-    } else {
         return next();
     }
     

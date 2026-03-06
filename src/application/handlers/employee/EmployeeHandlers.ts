@@ -15,9 +15,10 @@ import { handleSuccess } from "../../../middleware/errorHandler.middleware.js";
 import { InputSanitizer } from "../shared/InputSanitizer.js";
 import { AppError } from "../../../utils/appError.js";
 import { BaseHandler } from "../shared/BaseHandler.js";
-import { generateToken, verifyToken } from "../../../utils/jwt.utils.js";
+import { generateToken, verifyToken, blacklistToken } from "../../../utils/jwt.utils.js";
 import bcrypt from "bcrypt";
-import { hashRoundsPass } from "../../../constants/constants.js";
+import { hashRoundsPass, LOGIN_MAX_ATTEMPTS, IP_LOGIN_MAX_ATTEMPTS, LOGIN_LOCKOUT_WINDOW_SECONDS } from "../../../constants/constants.js";
+import { incrementSecurityCounter, isSecurityThresholdExceeded, resetSecurityCounter } from "../../../utils/securityAudit.js";
 
 /**
  * Consolidated Employee Handlers
@@ -203,27 +204,51 @@ class EmployeeHandlers extends BaseHandler {
 
       const { email, password } = sanitized;
 
+      const emailKey = `sec:login_fail:${email}`;
+      const ipKey = `sec:login_fail_ip:${req.ip}`;
+
+      // Block before any DB work — check both per-email and per-IP lockouts
+      const [emailLocked, ipLocked] = await Promise.all([
+        isSecurityThresholdExceeded(emailKey, LOGIN_MAX_ATTEMPTS),
+        isSecurityThresholdExceeded(ipKey, IP_LOGIN_MAX_ATTEMPTS),
+      ]);
+      if (emailLocked || ipLocked) {
+        throw new AppError("account_locked", errorCodes.resTooMany);
+      }
+
+      const incrementBoth = () => Promise.all([
+        incrementSecurityCounter(emailKey, LOGIN_LOCKOUT_WINDOW_SECONDS),
+        incrementSecurityCounter(ipKey, LOGIN_LOCKOUT_WINDOW_SECONDS),
+      ]);
+
       // Find employee by email
       const employee = await this.repository.findByEmail(email);
       if (!employee) {
+        await incrementBoth();
         throw new AppError("invalid_credentials", errorCodes.resUnauth);
       }
 
       // Verify password
       const employeeId = employee.getId();
       if (!employeeId) {
+        await incrementBoth();
         throw new AppError("invalid_credentials", errorCodes.resUnauth);
       }
 
       const passwordHash = await this.repository.getPasswordHash(employeeId);
       if (!passwordHash) {
+        await incrementBoth();
         throw new AppError("invalid_credentials", errorCodes.resUnauth);
       }
 
       const isValidPassword = await bcrypt.compare(password, passwordHash);
       if (!isValidPassword) {
+        await incrementBoth();
         throw new AppError("invalid_credentials", errorCodes.resUnauth);
       }
+
+      // Success — reset per-email counter; IP counter expires naturally
+      await resetSecurityCounter(emailKey);
 
       // Get responsibilities to build JWT permissions (don't fetch labels for JWT)
       const responsibilities = (await this.roleRepository.getResponsibilitiesForUserOrAdmin(
@@ -266,7 +291,7 @@ class EmployeeHandlers extends BaseHandler {
       const { token } = sanitized;
 
       try {
-        const decoded = verifyToken(token);
+        const decoded = await verifyToken(token);
         const tokenData = {
           email: decoded.email,
           name: decoded.name,
@@ -387,6 +412,12 @@ class EmployeeHandlers extends BaseHandler {
 
       // Update password in repository
       await this.repository.updatePassword(employeeId, newPasswordHash);
+
+      // Invalidate the current token so it cannot be reused after a password change
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        await blacklistToken(authHeader.split(" ")[1]);
+      }
 
       handleSuccess(res, "password_changed", null, errorCodes.resOk, req.lang);
     },

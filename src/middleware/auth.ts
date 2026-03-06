@@ -18,7 +18,7 @@ export const authenticate = async (
     }
 
     const token = authHeader.split(" ")[1]
-    const decoded = verifyToken(token) as JwtUserPayload;
+    const decoded = await verifyToken(token) as JwtUserPayload;
 
     req.user = decoded;
     next();

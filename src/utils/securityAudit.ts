@@ -12,6 +12,7 @@
 
 import { logger } from './logger.js';
 import { SecurityContext } from '../middleware/requestContext.middleware.js';
+import { getRedisClient } from '../config/redis.client.js';
 
 /**
  * Security event types for anomaly tracking
@@ -198,24 +199,26 @@ export const sanitizeHeaders = (headers: any): any => {
 };
 
 /**
- * Detect potential SQL injection patterns in string
- * Uses simple heuristic matching - not exhaustive but catches common patterns
- * 
+ * Detect structural injection patterns in a string.
+ * Only matches syntax that cannot appear in legitimate user input —
+ * no SQL keyword matching (OR, AND, SELECT…) to avoid false positives on normal text.
+ *
  * @param input - String to check
- * @returns true if injection pattern detected
+ * @returns true if an injection pattern is detected
  */
 export const detectInjectionPattern = (input: string): boolean => {
   if (typeof input !== 'string') return false;
 
   const injectionPatterns = [
-    // SQL keywords
-    /(\bOR\b|\bAND\b|\bUNION\b|\bSELECT\b|\bDROP\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bEXEC\b|\bXP_)/i,
-    // SQL comment syntax
-    /(-{2}|\/\*|\*\/|;)/,
-    // Stored procedures
-    /xp_|sp_|dbo\./i,
-    // Script injection
-    /<script|javascript:|onerror=/i,
+    // SQL comment / statement terminators — structural, never in normal field values
+    /--|\/\*|\*\/|;/,
+    // Stored procedure prefixes (xp_, sp_, dbo.) — structural
+    /\bxp_|\bsp_|\bdbo\./i,
+    // Script / event-handler injection
+    /<script[\s>]/i,
+    /javascript\s*:/i,
+    /\bonerror\s*=/i,
+    /\bonload\s*=/i,
   ];
 
   return injectionPatterns.some((pattern) => pattern.test(input));
@@ -258,33 +261,67 @@ export const detectSuspiciousContent = (body: any): Array<{ field: string; reaso
 };
 
 /**
- * Count consecutive security events for user/IP
- * Used to detect brute force or repeated attacks
- * Would need Redis in production for distributed counting
- * 
- * @param key - Unique key for counting (e.g., "user_123_otp_fails")
- * @returns Current count
+ * Increment a security counter in Redis with a sliding TTL window.
+ * Used to detect brute force or repeated attacks.
+ * Fails silently if Redis is unavailable — auth flow is not blocked.
+ *
+ * @param key - Unique key for counting (e.g., "sec:login_fail:user@example.com")
+ * @param ttlSeconds - Window duration; resets count after this many seconds of inactivity
+ * @returns Current count, or 0 if Redis is unavailable
  */
-export const incrementSecurityCounter = async (key: string): Promise<number> => {
-  // TODO: Implement with Redis for distributed deployments
-  // For now, this is a placeholder that logs the attempt
-  logger.info(`Security counter incremented: ${key}`);
-  return 1;
+export const incrementSecurityCounter = async (key: string, ttlSeconds: number = 900): Promise<number> => {
+  try {
+    const redis = getRedisClient();
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, ttlSeconds);
+    }
+    return count;
+  } catch (error) {
+    logger.warn(`Security counter unavailable for key: ${key}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
 };
 
 /**
- * Check if consecutive violations exceed threshold
- * Used to escalate severity for repeated violations
- * 
+ * Check if a security counter has reached or exceeded a threshold.
+ * Fails open (returns false) if Redis is unavailable — auth flow is not blocked.
+ *
  * @param key - Unique key for counting
  * @param threshold - Max allowed count before escalation
- * @returns true if threshold exceeded
+ * @returns true if threshold exceeded, false if under threshold or Redis unavailable
  */
 export const isSecurityThresholdExceeded = async (
   key: string,
   threshold: number
 ): Promise<boolean> => {
-  // TODO: Implement with Redis for distributed deployments
-  // For now, always return false
-  return false;
+  try {
+    const redis = getRedisClient();
+    const count = await redis.get(key);
+    return count !== null && parseInt(count, 10) >= threshold;
+  } catch (error) {
+    logger.warn(`Security threshold check unavailable for key: ${key}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+};
+
+/**
+ * Reset a security counter (e.g., after a successful login).
+ * Fails silently if Redis is unavailable.
+ *
+ * @param key - Unique key to delete
+ */
+export const resetSecurityCounter = async (key: string): Promise<void> => {
+  try {
+    const redis = getRedisClient();
+    await redis.del(key);
+  } catch (error) {
+    logger.warn(`Security counter reset failed for key: ${key}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 };

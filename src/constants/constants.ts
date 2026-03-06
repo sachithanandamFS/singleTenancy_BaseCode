@@ -52,3 +52,7 @@ export const EXCLUDED_ATTRIBUTES:string[] = ['createdAt', 'updatedAt', 'deletedA
 export const hashRoundsPass = 10;
 
 export const IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24; // 24 hours
+
+export const LOGIN_MAX_ATTEMPTS = 5;           // per email: lock after 5 failures
+export const IP_LOGIN_MAX_ATTEMPTS = 20;        // per IP: lock after 20 failures (covers credential stuffing / email rotation)
+export const LOGIN_LOCKOUT_WINDOW_SECONDS = 15 * 60; // 15-minute sliding window for both counters

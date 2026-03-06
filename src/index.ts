@@ -1,4 +1,5 @@
 import express from "express";
+import helmet from "helmet";
 import bodyParser from "body-parser";
 import cors, { CorsOptions } from "cors";
 import dotenv from "dotenv";
@@ -18,6 +19,11 @@ import { requestContextMiddleware } from "./middleware/requestContext.middleware
 dotenv.config();
 
 const app = express();
+
+// Trust one proxy hop so req.ip reflects the real client IP from X-Forwarded-For
+// Required for accurate rate limiting and security logging when behind a load balancer/reverse proxy
+app.set("trust proxy", 1);
+
 const port = process.env.PORT || 5000;
 const env = process.env.NODE_ENV as IEnvironment;
 logger.info(`Environment: ${env}`);
@@ -34,7 +40,8 @@ const corsOptions: CorsOptions = {
   origin: (origin, callback) => {
     const allowed = allowedOrigins[env];
 
-    // If no origin (e.g., mobile apps, curl, Postman) OR origin is allowed
+    // Requests with no Origin header (mobile apps, server-to-server, Postman) are allowed by design.
+    // This is a known trade-off: browser-enforced CORS doesn't apply to non-browser clients.
     if (!origin || (Array.isArray(allowed) && allowed.includes(origin))) {
       callback(null, true);
     } else {
@@ -59,18 +66,15 @@ if (env === "production") {
   });
 }
 
-// Security headers for HTTPS
-app.use((req, res, next) => {
-  res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  next();
-});
+// Security headers (helmet covers CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.)
+app.use(helmet());
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// 10kb global limit protects against oversized payloads on all API endpoints.
+// For file upload routes, apply express.raw() or multer with its own size limit per route instead.
+app.use(bodyParser.json({ limit: "10kb" }));
+app.use(bodyParser.urlencoded({ extended: true, limit: "10kb" }));
 
 // Request context: generates unique requestId for correlation + tracing
 // Minimal overhead (~0.5ms per request) - only logs on security events

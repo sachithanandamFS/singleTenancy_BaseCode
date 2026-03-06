@@ -23,7 +23,9 @@ export const securityValidationMiddleware = async (
 ): Promise<void> => {
   try {
     let check_add_sec = process.env.check_add_sec;
-    if(check_add_sec == 'TRUE'){
+    if(check_add_sec == 'FALSE'){
+        return next();
+    } else {
         // Only validate POST/PUT/PATCH requests with body
         if (!['POST', 'PUT', 'PATCH'].includes(req.method)) {
         return next();
@@ -74,8 +76,6 @@ export const securityValidationMiddleware = async (
         });
         }
 
-        next();
-    } else {
         next();
     }
   } catch (error) {

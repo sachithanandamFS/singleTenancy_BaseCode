@@ -37,10 +37,9 @@ export const requestContextMiddleware = (
     // Generate unique requestId for request correlation
     const requestId = uuidv4();
     
-    // Extract client IP (handles proxies)
-    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || 
-               req.socket.remoteAddress || 
-               'unknown';
+    // req.ip is correct here because app.set('trust proxy', 1) is configured in index.ts,
+    // so Express resolves the real client IP from X-Forwarded-For automatically.
+    const ip = req.ip || 'unknown';
     
     // Attach to request object for downstream use
     (req as any).requestId = requestId;
@@ -82,7 +81,7 @@ export const getSecurityContext = (req: Request): SecurityContext => {
   // Fallback for requests that bypass middleware
   return {
     requestId: 'unknown',
-    ip: req.socket.remoteAddress || 'unknown',
+    ip: req.ip || 'unknown',
     timestamp: Date.now(),
     endpoint: req.path,
     method: req.method,
