@@ -1,11 +1,7 @@
 import i18n from 'i18n';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-import { SupportedLanguages, SUPPORTED_LANGUAGES } from '../constants/constants.js';
+import { SupportedLanguages, SUPPORTED_LANGUAGES } from '../constants/constants';
 
 // Filter out numeric keys from enum (TypeScript enums have reverse mappings)
 const localeCodes = SUPPORTED_LANGUAGES.filter(l => 
@@ -14,10 +10,10 @@ const localeCodes = SUPPORTED_LANGUAGES.filter(l =>
 
 i18n.configure({
   locales: localeCodes,
-  directory: join(__dirname, '../../locales'),
+  directory: join(__dirname, '../locales'),
   defaultLocale: SupportedLanguages.EN,
   queryParameter: 'lang',
-  autoReload: true,
+  autoReload: false,
   updateFiles: false,
   objectNotation: true,
   api: {

@@ -1,6 +1,6 @@
 import { number, object, string, array, boolean } from "yup";
-import { getTranslation } from "../services/translation.js";
-import { SupportedLanguages } from "../constants/constants.js";
+import { getTranslation } from "../services/translation";
+import { SupportedLanguages } from "../constants/constants";
 
 type Translator = (key: string) => string;
 

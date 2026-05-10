@@ -10,9 +10,9 @@
  * - critical: Active incident requiring immediate attention (e.g., brute force, repeated violations)
  */
 
-import { logger } from './logger.js';
-import { SecurityContext } from '../middleware/requestContext.middleware.js';
-import { getRedisClient } from '../config/redis.client.js';
+import { logger } from './logger';
+import { SecurityContext } from '../common/interceptors/request-context.interceptor';
+import { getRedisClient } from '../config/redis.client';
 
 /**
  * Security event types for anomaly tracking

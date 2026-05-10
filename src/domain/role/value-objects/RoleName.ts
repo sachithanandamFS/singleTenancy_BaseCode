@@ -1,5 +1,5 @@
-import { AppError } from "../../../utils/appError.js";
-import { errorCodes } from "../../../constants/constants.js";
+import { AppError } from "../../../utils/appError";
+import { errorCodes } from "../../../constants/constants";
 
 /**
  * RoleName Value Object

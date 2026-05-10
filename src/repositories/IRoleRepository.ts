@@ -1,4 +1,4 @@
-import { RoleEntity } from "../domain/role/RoleEntity.js";
+import { RoleEntity } from "../domain/role/RoleEntity";
 
 /**
  * Role Repository Interface

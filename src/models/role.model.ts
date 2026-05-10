@@ -1,5 +1,15 @@
-import { Model, DataTypes, Optional } from "sequelize";
-import { sequelize } from "../db/config.js";
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  BelongsToMany,
+  AutoIncrement,
+  PrimaryKey,
+  Unique,
+} from 'sequelize-typescript';
+import User from './user.model';
+import UserRole from './user-role.model';
 
 export interface IRoleAttributes {
   id: number;
@@ -9,58 +19,20 @@ export interface IRoleAttributes {
   updatedAt?: Date;
 }
 
-export interface IRoleCreationAttributes
-  extends Optional<
-    IRoleAttributes,
-    "id" | "createdAt" | "updatedAt"
-  > {}
+@Table({ tableName: 'roles', timestamps: true, underscored: true })
+export default class Role extends Model<IRoleAttributes> {
+  @AutoIncrement
+  @PrimaryKey
+  @Column(DataType.BIGINT)
+  id: number;
 
+  @Unique
+  @Column({ type: DataType.STRING(50), allowNull: false })
+  r_name: string;
 
-class Role
-  extends Model<IRoleAttributes, IRoleCreationAttributes>
-  implements IRoleAttributes
-{
-  public id!: number;
-  public r_name!: string;
-  public r_description!: string;
-  public createdAt?: Date;
-  public updatedAt?: Date;
+  @Column({ type: DataType.STRING(500), allowNull: false })
+  r_description: string;
+
+  @BelongsToMany(() => User, () => UserRole)
+  users: User[];
 }
-
-Role.init(
-  {
-    id: {
-      type: DataTypes.BIGINT,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    r_name: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-      unique: true,
-    },
-    r_description: {
-      type: DataTypes.STRING(500),
-      allowNull: false,
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-  },
-  {
-    sequelize,
-    tableName: "roles",
-    timestamps: true,
-    paranoid: false,
-    underscored: true,
-  }
-);
-
-export default Role;

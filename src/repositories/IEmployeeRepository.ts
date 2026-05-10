@@ -1,4 +1,4 @@
-import { EmployeeEntity } from "../domain/employee/EmployeeEntity.js";
+import { EmployeeEntity } from "../domain/employee/EmployeeEntity";
 
 /**
  * Employee Repository Interface

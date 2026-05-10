@@ -1,6 +1,6 @@
-import { Email } from "./value-objects/Email.js";
-import { EmployeeName } from "./value-objects/EmployeeName.js";
-import { Roles } from "../../constants/constants.js";
+import { Email } from "./value-objects/Email";
+import { EmployeeName } from "./value-objects/EmployeeName";
+import { Roles } from "../../constants/constants";
 
 /**
  * Employee Domain Entity

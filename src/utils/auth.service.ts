@@ -10,9 +10,9 @@
  */
 
 import { JwtPayload } from "jsonwebtoken";
-import { verifyToken, JwtUserPayload } from "./jwt.utils.js";
-import { verifyAuth0Token } from "./auth0.utils.js";
-import { verifySsoToken } from "./sso.utils.js";
+import { verifyToken, JwtUserPayload } from "./jwt.utils";
+import { verifyAuth0Token } from "./auth0.utils";
+import { verifySsoToken } from "./sso.utils";
 
 /**
  * Verify a Bearer token using whichever provider is active.

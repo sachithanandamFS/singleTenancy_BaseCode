@@ -25,8 +25,8 @@
 
 import jwt from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
-import { JwtUserPayload } from "./jwt.utils.js";
-import { logger } from "./logger.js";
+import { JwtUserPayload } from "./jwt.utils";
+import { logger } from "./logger";
 
 // Lazy-initialized JWKS client — created on first token verification, then reused.
 // Caches signing keys for 10 minutes to avoid excessive JWKS endpoint requests.

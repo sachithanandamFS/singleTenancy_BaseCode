@@ -3,8 +3,8 @@
  * Handles persistence operations for AWS file metadata
  */
 
-import AwsFile from "../models/aws-file.model.js";
-import { AwsFileEntity, IAwsFileProps } from "../domain/aws-file/AwsFileEntity.js";
+import AwsFile from "../models/aws-file.model";
+import { AwsFileEntity, IAwsFileProps } from "../domain/aws-file/AwsFileEntity";
 
 export class AwsFileRepository {
   /**

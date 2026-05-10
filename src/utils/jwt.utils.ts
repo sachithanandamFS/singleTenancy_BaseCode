@@ -1,7 +1,7 @@
 import jwt, { JwtPayload } from "jsonwebtoken";
 import type { StringValue } from "ms";
-import { getRedisClient } from "../config/redis.client.js";
-import { logger } from "./logger.js";
+import { getRedisClient } from "../config/redis.client";
+import { logger } from "./logger";
 
 const secret = process.env.JWT_ACCESS_SECRET as string;
 const ACCESS_TOKEN_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN as string;

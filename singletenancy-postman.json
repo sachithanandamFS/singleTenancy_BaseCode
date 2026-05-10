@@ -1,0 +1,543 @@
+{
+  "info": {
+    "name": "SingleTenancy BaseCode API",
+    "description": "NestJS API for SingleTenancy BaseCode — Employee & Role management with JWT auth.\n\n**Setup:**\n1. Run the login request to get a token\n2. The `authToken` collection variable is set automatically from login response\n3. All protected routes use `Bearer {{authToken}}`\n\n**Base URL:** `{{baseUrl}}` defaults to `http://localhost:4000`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000", "type": "string" },
+    { "key": "authToken", "value": "", "type": "string" },
+    { "key": "employeeId", "value": "1", "type": "string" },
+    { "key": "roleId", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Public authentication endpoints — no token required",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set('authToken', json.data.token);",
+                  "    console.log('Token saved to authToken variable');",
+                  "  }",
+                  "}",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has token', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success).to.be.true;",
+                  "  pm.expect(json.data.token).to.be.a('string');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/employee/v1/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"Admin@123\"\n}"
+            },
+            "description": "Authenticate with email + password. Saves the JWT to `authToken` collection variable automatically."
+          }
+        },
+        {
+          "name": "Login — Validation Error Demo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has errors array', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.success).to.be.false;",
+                  "  pm.expect(json.errors).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/employee/v1/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"notanemail\"\n}"
+            },
+            "description": "Demonstrates Yup validation — missing password + invalid email returns structured errors."
+          }
+        },
+        {
+          "name": "Validate Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401', () => {",
+                  "  pm.expect([200, 401]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/employee/v1/validate-token",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{authToken}}\"\n}"
+            },
+            "description": "Validates a JWT token and returns the decoded user info."
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('authToken', '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/employee/v1/logout",
+            "description": "Blacklists the current JWT so it cannot be reused. Clears `authToken` variable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee",
+      "description": "Employee CRUD — most endpoints require JWT + module permissions",
+      "item": [
+        {
+          "name": "Create Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Success true', () => pm.expect(pm.response.json().success).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/employee/v1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"name\": \"John Doe\",\n  \"phone\": \"+1234567890\",\n  \"user_type\": 3\n}"
+            },
+            "description": "Create a new employee. Requires `Manage Employee > Create` permission.\n\n`user_type`: 1=SuperAdmin, 2=Admin, 3=Employee (SuperAdmin cannot be created via API)"
+          }
+        },
+        {
+          "name": "Get All Employees",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Data is array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/employee/v1",
+            "description": "List employees. Admin/SuperAdmin see all user types; regular employee sees only EMPLOYEE-type users."
+          }
+        },
+        {
+          "name": "Get All Users (SuperAdmin only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401', () => pm.expect([200, 401]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/employee/v1/all-users",
+            "description": "Returns all users across all types. SuperAdmin only."
+          }
+        },
+        {
+          "name": "Get My Responsibilities",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/employee/v1/get-my-responsibilities",
+            "description": "Returns the authenticated user's module permissions with labels. Admin/SuperAdmin get full access."
+          }
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401', () => pm.expect([200, 401]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/employee/v1/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"Admin@123\",\n  \"new_password\": \"NewAdmin@456\"\n}"
+            },
+            "description": "Change the authenticated user's password. Old token is blacklisted on success."
+          }
+        },
+        {
+          "name": "Get Employee By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 404', () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/employee/v1/{{employeeId}}",
+            "description": "Get an employee by ID including their assigned roles."
+          }
+        },
+        {
+          "name": "Update Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 404', () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/employee/v1/{{employeeId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.updated@example.com\",\n  \"name\": \"John Updated\"\n}"
+            },
+            "description": "Update an employee's profile. Validates email uniqueness on change."
+          }
+        },
+        {
+          "name": "Change Employee Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 404', () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/employee/v1/{{employeeId}}/change-status",
+            "description": "Toggle an employee's active/inactive status."
+          }
+        },
+        {
+          "name": "Assign Roles to Employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401 or 404', () => pm.expect([200, 401, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/employee/v1/{{employeeId}}/assign-roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"r_role_ids\": [1, 2]\n}"
+            },
+            "description": "Assign roles to an employee. Admin or SuperAdmin only. Replaces all existing role assignments."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "description": "Role management — SuperAdmin only",
+      "item": [
+        {
+          "name": "Create Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 or 401 or 409', () => pm.expect([201, 401, 409]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/roles/v1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"r_name\": \"Operations Manager\",\n  \"r_desc\": \"Manages day-to-day operations and employee oversight\"\n}"
+            },
+            "description": "Create a new role. SuperAdmin only. Returns 409 if name already exists."
+          }
+        },
+        {
+          "name": "Get All Roles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401', () => pm.expect([200, 401]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200 && pm.response.json().data.length > 0) {",
+                  "  pm.collectionVariables.set('roleId', pm.response.json().data[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/roles/v1",
+            "description": "List all roles ordered alphabetically. Auto-saves first role ID to `roleId` variable."
+          }
+        },
+        {
+          "name": "Get Role By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401 or 404', () => pm.expect([200, 401, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{authToken}}" }],
+            "url": "{{baseUrl}}/api/roles/v1/{{roleId}}",
+            "description": "Get role details including all assigned module permissions with labels."
+          }
+        },
+        {
+          "name": "Update Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401 or 404', () => pm.expect([200, 401, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/roles/v1/{{roleId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"r_name\": \"Senior Operations Manager\",\n  \"r_desc\": \"Senior role for operations management\"\n}"
+            },
+            "description": "Update role name and description. Validates name uniqueness excluding the current role."
+          }
+        },
+        {
+          "name": "Assign Responsibilities to Role",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 401 or 404', () => pm.expect([200, 401, 404]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/roles/v1/{{roleId}}/assign-responsibilities",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    {\n      \"module_id\": 1,\n      \"resp_ids\": [1, 2, 3]\n    }\n  ]\n}"
+            },
+            "description": "Assign module responsibilities to a role. Replaces all existing permissions.\n\n**Responsibility IDs:** 1=Create, 2=List, 3=Preview, 4=Edit, 5=ChangeStatus, 6=Delete\n**Module IDs:** Defined in `resources/ModuleDetails.json` (e.g. 1=Manage Employee)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error Demos",
+      "description": "Sample requests demonstrating error responses",
+      "item": [
+        {
+          "name": "401 — No Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/employee/v1",
+            "description": "Expected: 401 `no_token`"
+          }
+        },
+        {
+          "name": "400 — Password Complexity Fail",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/employee/v1/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"weak\"\n}"
+            },
+            "description": "Expected: 400 `validation_failed` with errors array"
+          }
+        },
+        {
+          "name": "400 — Missing Idempotency Key (when check_add_sec=TRUE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/employee/v1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new@example.com\",\n  \"password\": \"Pass@123\",\n  \"name\": \"Test User\",\n  \"phone\": \"+1234567890\",\n  \"user_type\": 3\n}"
+            },
+            "description": "When `check_add_sec=TRUE` in .env, write endpoints require `Idempotency-Key` header. Returns 400 without it."
+          }
+        },
+        {
+          "name": "400 — With Idempotency Key (when check_add_sec=TRUE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Idempotency-Key", "value": "unique-request-id-abc123" }
+            ],
+            "url": "{{baseUrl}}/api/employee/v1",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new@example.com\",\n  \"password\": \"Pass@123\",\n  \"name\": \"Test User\",\n  \"phone\": \"+1234567890\",\n  \"user_type\": 3\n}"
+            },
+            "description": "With `check_add_sec=TRUE` — the same Idempotency-Key replays the cached response on retry."
+          }
+        }
+      ]
+    }
+  ]
+}

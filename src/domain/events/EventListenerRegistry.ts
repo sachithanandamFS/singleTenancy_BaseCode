@@ -4,7 +4,7 @@
  * This ensures only relevant listeners are triggered for each module's events
  */
 
-import { DomainEventDispatcher } from "./DomainEventDispatcher.js";
+import { DomainEventDispatcher } from "./DomainEventDispatcher";
 
 let isInitialized = false;
 

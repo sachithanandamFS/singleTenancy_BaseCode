@@ -1,6 +1,6 @@
-import { RoleName } from "./value-objects/RoleName.js";
-import { AppError } from "../../utils/appError.js";
-import { errorCodes } from "../../constants/constants.js";
+import { RoleName } from "./value-objects/RoleName";
+import { AppError } from "../../utils/appError";
+import { errorCodes } from "../../constants/constants";
 
 /**
  * Role Domain Entity

@@ -4,10 +4,10 @@ import {
   S3,
 } from "@aws-sdk/client-s3";
 import { Model } from "sequelize";
-import { AwsFileSaveRequestDTO } from "../application/dtos/shared/AwsFileDTO.js";
-import { AwsFileRepository } from "../repositories/AwsFileRepository.js";
-import { AwsFileEntity } from "../domain/aws-file/AwsFileEntity.js";
-import { logger } from "./logger.js";
+import { AwsFileSaveRequestDTO } from "../application/dtos/shared/AwsFileDTO";
+import { AwsFileRepository } from "../repositories/AwsFileRepository";
+import { AwsFileEntity } from "../domain/aws-file/AwsFileEntity";
+import { logger } from "./logger";
 
 interface UploadResult {
   response: PutObjectCommandOutput;

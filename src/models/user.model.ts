@@ -1,12 +1,23 @@
-import { Model, DataTypes, Optional, BelongsToManySetAssociationsMixin, BelongsToManyAddAssociationsMixin, Association, BelongsToManyGetAssociationsMixin } from "sequelize";
-import { sequelize } from "../db/config.js";
-import Role from "./role.model.js";
-import { Roles } from "../constants/constants.js";
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  BelongsToMany,
+  AutoIncrement,
+  PrimaryKey,
+  Unique,
+  Default,
+  Scopes,
+} from 'sequelize-typescript';
+import { Roles } from '../constants/constants';
+import Role from './role.model';
+import UserRole from './user-role.model';
 
 export interface IUserAttributes {
   id: number;
   email: string;
-  u_password: null | string;
+  u_password: string | null;
   f_name: string;
   is_active: boolean;
   user_type?: number;
@@ -15,87 +26,39 @@ export interface IUserAttributes {
   updatedAt?: Date;
 }
 
-export interface IUserCreationAttributes
-  extends Optional<
-    IUserAttributes,
-    "id" | "is_active" | "createdAt" | "updatedAt"
-  > {}
-
-class User extends Model<IUserAttributes, IUserCreationAttributes> {
-  public id!: number;
-  public email!: string;
-  public u_password!: string;
-  public f_name!: string;
-  public is_active!: boolean;
-  public user_type!: number;
-  public phone_number!: string;
-  public createdAt?: Date;
-  public updatedAt?: Date;
-
-  public setRoles!: BelongsToManySetAssociationsMixin<Role, number>;
-  public addRoles!: BelongsToManyAddAssociationsMixin<Role, number>;
-  public getRoles!: BelongsToManyGetAssociationsMixin<Role>;
-  
-    public static associations: {
-      roles: Association<User, Role>;
-    };
-}
-
-User.init(
-  {
-    id: {
-      type: DataTypes.BIGINT,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    email: {
-      type: DataTypes.STRING(500),
-      allowNull: false,
-      unique: true,
-    },
-    u_password: {
-      type: DataTypes.STRING(500),
-      allowNull: false,
-    },
-    f_name: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-    },
-    is_active: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true,
-    },
-    user_type: {
-      type: DataTypes.INTEGER,
-      defaultValue: Roles.ADMIN,
-    },
-    phone_number: {
-      type: DataTypes.STRING(15),
-      allowNull: false,
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
+@Scopes(() => ({
+  withRoles: {
+    include: [{ model: Role, through: { attributes: [] } }],
   },
-  {
-    sequelize,
-    tableName: "users",
-    timestamps: true,
-    paranoid: false,
-    underscored: true,
-  }
-);
+}))
+@Table({ tableName: 'users', timestamps: true, underscored: true })
+export default class User extends Model<IUserAttributes> {
+  @AutoIncrement
+  @PrimaryKey
+  @Column(DataType.BIGINT)
+  id: number;
 
+  @Unique
+  @Column({ type: DataType.STRING(500), allowNull: false })
+  email: string;
 
-User.addScope('withRoles', {
-  include: [{ association: 'Roles', through: { attributes: [] } }]
-});
+  @Column({ type: DataType.STRING(500), allowNull: false })
+  u_password: string;
 
-export default User;
+  @Column({ type: DataType.STRING(100), allowNull: false })
+  f_name: string;
+
+  @Default(true)
+  @Column(DataType.BOOLEAN)
+  is_active: boolean;
+
+  @Default(Roles.ADMIN)
+  @Column(DataType.INTEGER)
+  user_type: number;
+
+  @Column({ type: DataType.STRING(15), allowNull: false })
+  phone_number: string;
+
+  @BelongsToMany(() => Role, () => UserRole)
+  roles: Role[];
+}

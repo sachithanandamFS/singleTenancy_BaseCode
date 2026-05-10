@@ -3,7 +3,7 @@
  * Used for audit trail and extensibility
  */
 
-import { DomainEvent } from "../DomainEvent.js";
+import { DomainEvent } from "../DomainEvent";
 
 /**
  * Event dispatched when AWS file metadata is saved
